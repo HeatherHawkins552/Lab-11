@@ -1,24 +1,296 @@
 Lab 11 - Smoking during pregnancy
 ================
-Insert your name here
-Insert date here
+Ben Hardin
+3/28/2023
 
 ### Load packages and data
 
 ``` r
 library(tidyverse) 
-library(tidymodels)
+library(infer)
+library(knitr)
 library(openintro)
+library(scales)
+library(tidymodels)
+```
+
+``` r
+set.seed(1234)
+```
+
+``` r
+data(ncbirths)
 ```
 
 ### Exercise 1
 
-Remove this text, and add your answer for Exercise 1 here. Add code
-chunks as needed. Don’t forget to label your code chunk. Do not use
-spaces in code chunk labels.
+There are 1000 cases (births) in our sample. For each birth, there are
+13 variables. The numerical ones being, Father’s age, Mother’s age,
+Length of pregnancy in weeks, Number of hospital visits during
+pregnancy, Weight gained by the mother during pregnancy, and Weight of
+the baby at birth. The categorical ones being, Whether the birth was
+classified as premature or full-term, Whether the mother was classified
+as “young” or “mature”, Whether the mother was married or not married ,
+Whether the baby was classified as low birthweight or not, Gender of the
+baby, Smoking status of the mother, and Whether the mother is white or
+not white.
+
+There are a lot of outliers for the babyweight variable, with a few
+babies with very high birthweights and a lot of babies with very low
+birthweights. But otherwise, I dont see any other ones.
+
+``` r
+data(ncbirths)
+
+
+ncbirths %>%
+  ggplot(aes(x=weight))+
+  geom_density()
+```
+
+![](lab-11_files/figure-gfm/checking%20outliers-1.png)<!-- -->
+
+``` r
+ncbirths %>%
+  ggplot(aes(x=gained))+
+  geom_density()
+```
+
+    ## Warning: Removed 27 rows containing non-finite values (`stat_density()`).
+
+![](lab-11_files/figure-gfm/checking%20outliers-2.png)<!-- -->
+
+``` r
+ncbirths %>%
+  ggplot(aes(x=visits))+
+  geom_density()
+```
+
+    ## Warning: Removed 9 rows containing non-finite values (`stat_density()`).
+
+![](lab-11_files/figure-gfm/checking%20outliers-3.png)<!-- -->
+
+``` r
+ncbirths %>%
+  ggplot(aes(x=weeks))+
+  geom_density()
+```
+
+    ## Warning: Removed 2 rows containing non-finite values (`stat_density()`).
+
+![](lab-11_files/figure-gfm/checking%20outliers-4.png)<!-- -->
 
 ### Exercise 2
 
-…
+The average weight of caucasian babies is 7.25 pounds.
 
-Add exercise headings as needed.
+``` r
+ncbirths_white <- ncbirths %>%
+  filter(whitemom == "white")
+
+mean(ncbirths_white$weight, na.rm = T)
+```
+
+    ## [1] 7.250462
+
+``` r
+mean_weight_white <- mean(ncbirths_white$weight)
+mean_weight_white
+```
+
+    ## [1] 7.250462
+
+### Exercise 3
+
+Im not too sure what this question means- but I assume so because we can
+use the sample to infer what is happening in the
+population.Additionally, We can resample this multiple times by doing a
+bootstrap to make this inference.
+
+### Exercise 4
+
+Performing a hypothesis test for the average weight of White babies
+
+``` r
+null_mean <- 7.43
+diff_mean <- mean_weight_white - null_mean
+```
+
+Simulating a null distribution of sample means
+
+``` r
+n_bootstrap <- 10000
+bootstrap_means <- replicate(n_bootstrap, mean(sample(ncbirths_white$weight, replace = TRUE)))
+```
+
+Calculating the p-value
+
+``` r
+p_value <- 2 * min(sum(bootstrap_means <= mean_weight_white), sum(bootstrap_means >= mean_weight_white)) / n_bootstrap
+```
+
+Visualizing the null distribution
+
+``` r
+hist(bootstrap_means, breaks = 30, col = "lightblue", main = "Null Distribution", xlab = "Sample Means")
+abline(v = null_mean, lwd = 2, col = "red")
+abline(v = mean_weight_white, lwd = 2, col = "blue")
+```
+
+![](lab-11_files/figure-gfm/viz-1.png)<!-- --> There is a significant
+change in baby weights since 1995 \### Exercise 5
+
+``` r
+ncbirths %>% na.omit(cols = "habit") %>% ggplot(aes(y = weight, color = habit)) +
+  geom_boxplot()
+```
+
+![](lab-11_files/figure-gfm/weight%20and%20habit-1.png)<!-- -->
+
+### Exercise 6
+
+``` r
+ncbirths_clean <- na.omit(subset(ncbirths, !is.na(habit) & !is.na(weight)))
+```
+
+### Exercise 7
+
+Calculating the observed difference in means between smoking and
+non-smoking mothers
+
+``` r
+mean_weight_smoking <- subset(ncbirths_clean, habit == "smoker")$weight
+mean_weight_non_smoking <- subset(ncbirths_clean, habit == "nonsmoker")$weight
+obs_diff_mean <- mean(mean_weight_smoking) - mean(mean_weight_non_smoking)
+obs_diff_mean
+```
+
+    ## [1] -0.3603312
+
+### Exercise 8
+
+H0: mean_weight_smoke&non = mean_weight_smoke&non
+
+H1: mean_weight_smoke&non ≠ mean_weight_smoke&non
+
+### Exercise 9
+
+``` r
+t.test(ncbirths_clean$weight ~ ncbirths_clean$habit)
+```
+
+    ## 
+    ##  Welch Two Sample t-test
+    ## 
+    ## data:  ncbirths_clean$weight by ncbirths_clean$habit
+    ## t = 2.3625, df = 108.54, p-value = 0.01994
+    ## alternative hypothesis: true difference in means between group nonsmoker and group smoker is not equal to 0
+    ## 95 percent confidence interval:
+    ##  0.05801978 0.66264264
+    ## sample estimates:
+    ## mean in group nonsmoker    mean in group smoker 
+    ##                7.246760                6.886429
+
+The p-value is 0.019. There is evidence that there is a difference in
+birth weight of babies whose mothers smokes versus don’t smoke.
+
+### Exercise 10
+
+95 percent confidence interval: 0.05151165 0.57957328
+
+### Exercise 11
+
+I will do this by filtering who is considered mature.
+
+``` r
+ncbirths %>% filter(mature == "mature mom") %>% 
+  filter(mage == min(mage)) %>% 
+  select(mage, mature)
+```
+
+    ## # A tibble: 35 × 2
+    ##     mage mature    
+    ##    <int> <fct>     
+    ##  1    35 mature mom
+    ##  2    35 mature mom
+    ##  3    35 mature mom
+    ##  4    35 mature mom
+    ##  5    35 mature mom
+    ##  6    35 mature mom
+    ##  7    35 mature mom
+    ##  8    35 mature mom
+    ##  9    35 mature mom
+    ## 10    35 mature mom
+    ## # ℹ 25 more rows
+
+It seems that once you hit 35 you are labeled a mature mom.So, the
+minimum age to be considered a mature mom is 35.
+
+### Exercise 12
+
+lo_mature = low birth weight babies of mature mothers
+
+lo_young = low birth weight babies of young mothers
+
+H0: lo_mature = lo_young
+
+H1: lo_mature \> lo_young
+
+``` r
+ncbirths %>%
+  group_by(mature) %>%
+  summarise(mean_weight = mean(weight))
+```
+
+    ## # A tibble: 2 × 2
+    ##   mature      mean_weight
+    ##   <fct>             <dbl>
+    ## 1 mature mom         7.13
+    ## 2 younger mom        7.10
+
+``` r
+stat.test <- ncbirths %>% 
+  t_test(weight ~ mature) 
+```
+
+    ## Warning: The statistic is based on a difference or ratio; by default, for
+    ## difference-based statistics, the explanatory variable is subtracted in the
+    ## order "mature mom" - "younger mom", or divided in the order "mature mom" /
+    ## "younger mom" for ratio-based statistics. To specify this order yourself,
+    ## supply `order = c("mature mom", "younger mom")`.
+
+``` r
+stat.test
+```
+
+    ## # A tibble: 1 × 7
+    ##   statistic  t_df p_value alternative estimate lower_ci upper_ci
+    ##       <dbl> <dbl>   <dbl> <chr>          <dbl>    <dbl>    <dbl>
+    ## 1     0.186  166.   0.853 two.sided     0.0283   -0.273    0.329
+
+p= 0.8527932
+
+non sig
+
+### Exercise 13
+
+confidence interval for the difference in proportions
+
+``` r
+prop_low_mature <- sum(ncbirths$lowbirthweight[ncbirths$mature == "mature"] == "low") / sum(ncbirths$mature == "mature")
+prop_low_younger <- sum(ncbirths$lowbirthweight[ncbirths$mature != "mature"] == "low") / sum(ncbirths$mature != "mature")
+
+n_mature <- sum(ncbirths$mature == "mature")
+n_younger <- sum(ncbirths$mature != "mature")
+
+standard_error <- sqrt(prop_low_mature * (1 - prop_low_mature) / n_mature + prop_low_younger * (1 - prop_low_younger) / n_younger)
+z_critical <- qnorm(0.975)
+
+ci_lower <- (prop_low_mature - prop_low_younger) - z_critical * standard_error
+ci_upper <- (prop_low_mature - prop_low_younger) + z_critical * standard_error
+
+confidence_interval <- c(ci_lower, ci_upper)
+confidence_interval
+```
+
+    ## [1] NaN NaN

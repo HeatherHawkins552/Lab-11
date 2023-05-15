@@ -1,7 +1,7 @@
 ---
 title: "Lab 11 - Smoking during pregnancy"
-author: "Insert your name here"
-date: "Insert date here"
+author: "Ben Hardin"
+date: "3/28/2023"
 output: github_document
 ---
 
@@ -14,74 +14,189 @@ library(knitr)
 library(openintro)
 library(scales)
 library(tidymodels)
-library(rvest)
-library(scales)
+```
+
+```{r set-seed}
+set.seed(1234)
+```
+
+```{r load-data}
+data(ncbirths)
 ```
 
 ### Exercise 1
 
-```{R check}
-library(robotstxt)
-paths_allowed("https://www.opensecrets.org")
-#> [1] TRUE
+There are 1000 cases (births) in our sample. For each birth, there are 13 variables. 
+The numerical ones being, Father's age, Mother's age, Length of pregnancy in weeks, Number of hospital visits during pregnancy, Weight gained by the mother during pregnancy, and Weight of the baby at birth.
+The categorical ones being, Whether the birth was classified as premature or full-term, Whether the mother was classified as "young" or "mature", Whether the mother was married or not married , Whether the baby was classified as low birthweight or not, Gender of the baby, Smoking status of the mother, and Whether the mother is white or not white.
+
+There are a lot of outliers for the babyweight variable, with a few babies with very high birthweights and a lot of babies with very low birthweights. But otherwise, I dont see any other ones. 
+
+```{r checking outliers}
+data(ncbirths)
+
+
+ncbirths %>%
+  ggplot(aes(x=weight))+
+  geom_density()
+
+ncbirths %>%
+  ggplot(aes(x=gained))+
+  geom_density()
+
+ncbirths %>%
+  ggplot(aes(x=visits))+
+  geom_density()
+
+ncbirths %>%
+  ggplot(aes(x=weeks))+
+  geom_density()
 ```
 
-# Function to scrape PAC data
-scrape_pac <- function(url) {
-  page <- read_html(url)
-  
-  # Scrape data
-  data <- page %>%
-    html_nodes("table") %>%
-    html_table(fill = TRUE) %>%
-    .[[1]] %>%
-    set_names(nm = c("country_parent", "total", "dems", "repubs")) %>%
-    mutate(country_parent = str_squish(country_parent)) %>%
-    mutate(year = str_sub(url, -4))
-  
-  return(data)
-}
+### Exercise 2
 
-# Test the function with sample URLs
-url_2020 <- "https://www.opensecrets.org/outsidespending/detail.php?cmte=F00000005&cycle=2020"
-url_2018 <- "https://www.opensecrets.org/outsidespending/detail.php?cmte=F00000005&cycle=2018"
-url_1998 <- "https://www.opensecrets.org/outsidespending/detail.php?cmte=F00000005&cycle=1998"
+The average weight of caucasian babies is 7.25 pounds.
 
-data_2020 <- scrape_pac(url_2020)
-data_2018 <- scrape_pac(url_2018)
-data_1998 <- scrape_pac(url_1998)
+```{r dataset}
+ncbirths_white <- ncbirths %>%
+  filter(whitemom == "white")
 
-# Define URLs for all years
-urls <- c(url_2020, url_2018, url_1998)
+mean(ncbirths_white$weight, na.rm = T)
+mean_weight_white <- mean(ncbirths_white$weight)
+mean_weight_white
+```
+### Exercise 3
 
-# Scrape data for all years
-pac_all <- map_dfr(urls, scrape_pac)
+Im not too sure what this question means- but I assume so because we can use the sample to infer what is happening in the population.Additionally, We can resample this multiple times by doing a bootstrap to make this inference.
 
-# Write data frame to CSV
-write.csv(pac_all, file = "data/pac-all.csv", row.names = FALSE)
+### Exercise 4
 
-# Load pac-all.csv and check number of observations and variables
-pac_all <- read.csv("data/pac-all.csv")
-n_observations <- nrow(pac_all)
-n_variables <- ncol(pac_all)
-print(paste("Number of Observations:", n_observations))
-print(paste("Number of Variables:", n_variables))
+Performing a hypothesis test for the average weight of White babies
+```{r check}
+null_mean <- 7.43
+diff_mean <- mean_weight_white - null_mean
+```
 
-# Data cleaning
-pac_all <- pac_all %>%
-  separate(country_parent, into = c("country", "parent"), sep = "\\\\",
-           extra = "merge") %>%
-  mutate_at(vars(total, dems, repubs), ~as.numeric(str_remove_all(., "\\$|,")))
+Simulating a null distribution of sample means
 
-# Visualization
-pac_all %>%
-  filter(country %in% c("Canada", "Mexico")) %>%
-  group_by(country, year) %>%
-  summarize(total_contributions = sum(total)) %>%
-  ggplot(aes(x = year, y = total_contributions, color = country)) +
-  geom_line() +
-  scale_x_continuous(breaks = seq(min(pac_all$year), max(pac_all$year), 2)) +
-  scale_y_continuous(labels = comma) +
-  labs(x = "Year", y = "Total Contributions", color = "Country") +
-  theme_minimal()
+```{r stim}
+n_bootstrap <- 10000
+bootstrap_means <- replicate(n_bootstrap, mean(sample(ncbirths_white$weight, replace = TRUE)))
+```
 
+Calculating the p-value
+```{r cal}
+p_value <- 2 * min(sum(bootstrap_means <= mean_weight_white), sum(bootstrap_means >= mean_weight_white)) / n_bootstrap
+```
+
+Visualizing the null distribution
+```{r viz}
+hist(bootstrap_means, breaks = 30, col = "lightblue", main = "Null Distribution", xlab = "Sample Means")
+abline(v = null_mean, lwd = 2, col = "red")
+abline(v = mean_weight_white, lwd = 2, col = "blue")
+```
+There is a significant change in baby weights since 1995
+### Exercise 5
+
+```{r weight and habit}
+ncbirths %>% na.omit(cols = "habit") %>% ggplot(aes(y = weight, color = habit)) +
+  geom_boxplot()
+```
+
+
+### Exercise 6 
+```{r}
+
+ncbirths_clean <- na.omit(subset(ncbirths, !is.na(habit) & !is.na(weight)))
+```
+
+### Exercise 7 
+Calculating the observed difference in means between smoking and non-smoking mothers
+
+```{r ohno}
+mean_weight_smoking <- subset(ncbirths_clean, habit == "smoker")$weight
+mean_weight_non_smoking <- subset(ncbirths_clean, habit == "nonsmoker")$weight
+obs_diff_mean <- mean(mean_weight_smoking) - mean(mean_weight_non_smoking)
+obs_diff_mean
+```
+
+### Exercise 8
+
+
+H0: mean_weight_smoke&non = mean_weight_smoke&non
+
+H1: mean_weight_smoke&non ≠ mean_weight_smoke&non
+
+
+### Exercise 9
+
+```{r hyp}
+t.test(ncbirths_clean$weight ~ ncbirths_clean$habit)
+
+```
+
+The p-value is 0.019. There is evidence that there is a difference in birth weight of babies whose mothers smokes versus don't smoke. 
+
+### Exercise 10
+
+95 percent confidence interval:
+ 0.05151165 0.57957328
+ 
+### Exercise 11
+
+I will do this by filtering who is considered mature. 
+
+```{r mature}
+ncbirths %>% filter(mature == "mature mom") %>% 
+  filter(mage == min(mage)) %>% 
+  select(mage, mature)
+```
+
+It seems that once you hit 35 you are labeled a mature mom.So, the minimum age to be considered a mature mom is 35.
+
+
+### Exercise 12 
+
+lo_mature = low birth weight babies of mature mothers
+
+lo_young = low birth weight babies of young mothers
+
+H0: lo_mature = lo_young
+
+H1: lo_mature > lo_young
+
+```{r low birth weight hypothesis test}
+
+ncbirths %>%
+  group_by(mature) %>%
+  summarise(mean_weight = mean(weight))
+
+stat.test <- ncbirths %>% 
+  t_test(weight ~ mature) 
+stat.test
+```
+p= 0.8527932
+
+non sig
+
+### Exercise 13
+
+confidence interval for the difference in proportions
+
+```{r con}
+prop_low_mature <- sum(ncbirths$lowbirthweight[ncbirths$mature == "mature"] == "low") / sum(ncbirths$mature == "mature")
+prop_low_younger <- sum(ncbirths$lowbirthweight[ncbirths$mature != "mature"] == "low") / sum(ncbirths$mature != "mature")
+
+n_mature <- sum(ncbirths$mature == "mature")
+n_younger <- sum(ncbirths$mature != "mature")
+
+standard_error <- sqrt(prop_low_mature * (1 - prop_low_mature) / n_mature + prop_low_younger * (1 - prop_low_younger) / n_younger)
+z_critical <- qnorm(0.975)
+
+ci_lower <- (prop_low_mature - prop_low_younger) - z_critical * standard_error
+ci_upper <- (prop_low_mature - prop_low_younger) + z_critical * standard_error
+
+confidence_interval <- c(ci_lower, ci_upper)
+confidence_interval
+
+```
