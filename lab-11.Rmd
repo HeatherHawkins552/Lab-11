@@ -9,19 +9,79 @@ output: github_document
 
 ```{r load-packages, message=FALSE}
 library(tidyverse) 
-library(tidymodels)
+library(infer)
+library(knitr)
 library(openintro)
+library(scales)
+library(tidymodels)
+library(rvest)
+library(scales)
 ```
 
 ### Exercise 1
 
-Remove this text, and add your answer for Exercise 1 here.
-Add code chunks as needed.
-Don't forget to label your code chunk.
-Do not use spaces in code chunk labels.
+```{R check}
+library(robotstxt)
+paths_allowed("https://www.opensecrets.org")
+#> [1] TRUE
+```
 
-### Exercise 2
+# Function to scrape PAC data
+scrape_pac <- function(url) {
+  page <- read_html(url)
+  
+  # Scrape data
+  data <- page %>%
+    html_nodes("table") %>%
+    html_table(fill = TRUE) %>%
+    .[[1]] %>%
+    set_names(nm = c("country_parent", "total", "dems", "repubs")) %>%
+    mutate(country_parent = str_squish(country_parent)) %>%
+    mutate(year = str_sub(url, -4))
+  
+  return(data)
+}
 
-...
+# Test the function with sample URLs
+url_2020 <- "https://www.opensecrets.org/outsidespending/detail.php?cmte=F00000005&cycle=2020"
+url_2018 <- "https://www.opensecrets.org/outsidespending/detail.php?cmte=F00000005&cycle=2018"
+url_1998 <- "https://www.opensecrets.org/outsidespending/detail.php?cmte=F00000005&cycle=1998"
 
-Add exercise headings as needed.
+data_2020 <- scrape_pac(url_2020)
+data_2018 <- scrape_pac(url_2018)
+data_1998 <- scrape_pac(url_1998)
+
+# Define URLs for all years
+urls <- c(url_2020, url_2018, url_1998)
+
+# Scrape data for all years
+pac_all <- map_dfr(urls, scrape_pac)
+
+# Write data frame to CSV
+write.csv(pac_all, file = "data/pac-all.csv", row.names = FALSE)
+
+# Load pac-all.csv and check number of observations and variables
+pac_all <- read.csv("data/pac-all.csv")
+n_observations <- nrow(pac_all)
+n_variables <- ncol(pac_all)
+print(paste("Number of Observations:", n_observations))
+print(paste("Number of Variables:", n_variables))
+
+# Data cleaning
+pac_all <- pac_all %>%
+  separate(country_parent, into = c("country", "parent"), sep = "\\\\",
+           extra = "merge") %>%
+  mutate_at(vars(total, dems, repubs), ~as.numeric(str_remove_all(., "\\$|,")))
+
+# Visualization
+pac_all %>%
+  filter(country %in% c("Canada", "Mexico")) %>%
+  group_by(country, year) %>%
+  summarize(total_contributions = sum(total)) %>%
+  ggplot(aes(x = year, y = total_contributions, color = country)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(min(pac_all$year), max(pac_all$year), 2)) +
+  scale_y_continuous(labels = comma) +
+  labs(x = "Year", y = "Total Contributions", color = "Country") +
+  theme_minimal()
+
