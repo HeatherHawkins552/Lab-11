@@ -1,6 +1,6 @@
 Lab 11 - Smoking during pregnancy
 ================
-Ben Hardin
+Heather Hawkins
 3/28/2023
 
 ### Load packages and data
@@ -221,7 +221,7 @@ ncbirths %>% filter(mature == "mature mom") %>%
     ##  8    35 mature mom
     ##  9    35 mature mom
     ## 10    35 mature mom
-    ## # ℹ 25 more rows
+    ## # … with 25 more rows
 
 It seems that once you hit 35 you are labeled a mature mom.So, the
 minimum age to be considered a mature mom is 35.
@@ -254,10 +254,10 @@ stat.test <- ncbirths %>%
 ```
 
     ## Warning: The statistic is based on a difference or ratio; by default, for
-    ## difference-based statistics, the explanatory variable is subtracted in the
-    ## order "mature mom" - "younger mom", or divided in the order "mature mom" /
-    ## "younger mom" for ratio-based statistics. To specify this order yourself,
-    ## supply `order = c("mature mom", "younger mom")`.
+    ## difference-based statistics, the explanatory variable is subtracted in the order
+    ## "mature mom" - "younger mom", or divided in the order "mature mom" / "younger
+    ## mom" for ratio-based statistics. To specify this order yourself, supply `order =
+    ## c("mature mom", "younger mom")`.
 
 ``` r
 stat.test

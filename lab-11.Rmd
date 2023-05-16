@@ -1,6 +1,6 @@
 ---
 title: "Lab 11 - Smoking during pregnancy"
-author: "Ben Hardin"
+author: "Heather Hawkins"
 date: "3/28/2023"
 output: github_document
 ---
